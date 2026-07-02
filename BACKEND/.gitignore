@@ -31,3 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Logs ###
+logs/
+
+### Sensitive files ###
+src/main/resources/application.properties
