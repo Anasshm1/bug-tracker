@@ -28,7 +28,6 @@ export default function Login() {
       const response = await loginUser(email, password);
       login(response);
 
-      // Rediriger selon le rôle
       if (response.role === 'DEV') {
         navigate('/dev');
       } else {
@@ -43,67 +42,80 @@ export default function Login() {
 
   return (
     <div className="login-container">
-      <div className="login-card">
-        {/* Logo */}
-        <div className="logo">
-          <div className="logo-icon">
+      {/* Left Brand Panel */}
+      <div className="login-brand-panel">
+        <div className="login-brand-content">
+          <div className="brand-icon">
             <Bug />
           </div>
-          <span className="logo-text">Bug Tracker</span>
+          <h1>Bug Tracker</h1>
+          <p>
+            Gérez vos tickets, suivez les bugs et collaborez
+            efficacement avec votre équipe de développement.
+          </p>
         </div>
-        <p className="subtitle">Connectez-vous pour accéder à votre espace</p>
+      </div>
 
-        {/* Erreur */}
-        {error && (
-          <div className="login-error" id="login-error">
-            <AlertCircle size={16} />
-            {error}
+      {/* Right Form Panel */}
+      <div className="login-form-panel">
+        <div className="login-card">
+          <div className="card-heading">
+            <h2>Bienvenue</h2>
+            <p>Connectez-vous pour accéder à votre espace</p>
           </div>
-        )}
 
-        {/* Formulaire */}
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="email">Adresse email</label>
-            <div className="input-wrapper">
-              <input
-                id="email"
-                type="email"
-                placeholder="vous@exemple.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-              <Mail />
+          {error && (
+            <div className="login-error" id="login-error">
+              <AlertCircle size={15} />
+              {error}
             </div>
-          </div>
+          )}
 
-          <div className="form-group">
-            <label htmlFor="password">Mot de passe</label>
-            <div className="input-wrapper">
-              <input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-              <Lock />
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="email">Adresse email</label>
+              <div className="input-wrapper">
+                <input
+                  id="email"
+                  type="email"
+                  placeholder="vous@exemple.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+                <Mail />
+              </div>
             </div>
-          </div>
 
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={loading}
-            id="btn-login"
-          >
-            {loading ? <span className="spinner"></span> : 'Se connecter'}
-          </button>
-        </form>
+            <div className="form-group">
+              <label htmlFor="password">Mot de passe</label>
+              <div className="input-wrapper">
+                <input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+                <Lock />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={loading}
+              id="btn-login"
+            >
+              {loading ? <span className="spinner"></span> : 'Se connecter'}
+            </button>
+          </form>
+
+          <div className="login-footer">Bug Tracker v1.0</div>
+        </div>
       </div>
     </div>
   );

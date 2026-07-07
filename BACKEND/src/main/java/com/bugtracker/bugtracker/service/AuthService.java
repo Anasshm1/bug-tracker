@@ -11,8 +11,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -60,6 +64,7 @@ public class AuthService {
         // 6. Construit la réponse pour le Frontend
         return AuthResponse.builder()
                 .token(jwtToken)
+                .user(mapToUserDto(user))
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .role(user.getRole().name())
@@ -85,13 +90,29 @@ public class AuthService {
         log.info("Connexion réussie pour l'utilisateur : {}", user.getEmail());
 
         // 3. On génère un nouveau token JWT
-        String jwtToken = jwtService.generateToken(user);
+        String token = jwtService.generateToken(user);
 
         // 4. On renvoie les infos au Frontend
         return AuthResponse.builder()
-                .token(jwtToken)
+                .token(token)
+                .user(mapToUserDto(user))
                 .email(user.getEmail())
                 .fullName(user.getFullName())
+                .role(user.getRole().name())
+                .build();
+    }
+
+    public List<AuthResponse.UserDto> getDevelopers() {
+        return userRepository.findByRole(Role.DEV).stream()
+                .map(this::mapToUserDto)
+                .collect(Collectors.toList());
+    }
+
+    private AuthResponse.UserDto mapToUserDto(User user) {
+        return AuthResponse.UserDto.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
                 .role(user.getRole().name())
                 .build();
     }

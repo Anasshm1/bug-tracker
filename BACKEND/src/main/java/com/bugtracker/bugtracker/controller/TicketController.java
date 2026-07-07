@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -26,14 +27,15 @@ public class TicketController {
     /**
      * POST /api/tickets — Créer un ticket (REPORTER uniquement)
      */
-    @PostMapping
+    @PostMapping(consumes = {"multipart/form-data"})
     @PreAuthorize("hasRole('REPORTER')")
     public ResponseEntity<TicketResponse> createTicket(
-            @Valid @RequestBody TicketRequest request,
+            @RequestPart("ticket") @Valid TicketRequest request,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal User currentUser) {
 
         log.info("Création de ticket par {} : {}", currentUser.getEmail(), request.getTitle());
-        TicketResponse response = ticketService.createTicket(request, currentUser);
+        TicketResponse response = ticketService.createTicket(request, files, currentUser);
         return ResponseEntity.ok(response);
     }
 

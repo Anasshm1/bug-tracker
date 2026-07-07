@@ -1,5 +1,5 @@
 /**
- * Carte de statistique réutilisable.
+ * Carte de statistique réutilisable — layout professionnel.
  */
 export default function StatsCard({ label, value, icon, variant = 'total' }) {
   return (

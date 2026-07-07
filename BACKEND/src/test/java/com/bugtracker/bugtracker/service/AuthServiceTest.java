@@ -85,7 +85,8 @@ class AuthServiceTest {
                 .build();
 
         when(userRepository.findByEmail(loginRequest.getEmail())).thenReturn(Optional.of(user));
-        doNothing().when(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
         when(jwtService.generateToken(eq(user))).thenReturn("fake-jwt-token");
 
         AuthResponse response = authService.login(loginRequest);

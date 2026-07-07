@@ -4,9 +4,12 @@ import com.bugtracker.bugtracker.dto.AuthResponse;
 import com.bugtracker.bugtracker.dto.LoginRequest;
 import com.bugtracker.bugtracker.dto.RegisterRequest;
 import com.bugtracker.bugtracker.service.AuthService;
+import com.bugtracker.bugtracker.config.JwtService;
+import com.bugtracker.bugtracker.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
@@ -19,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class AuthControllerTest {
 
     @Autowired
@@ -29,6 +33,12 @@ class AuthControllerTest {
 
     @MockBean
     private AuthService authService;
+
+    @MockBean
+    private JwtService jwtService;
+
+    @MockBean
+    private UserRepository userRepository;
 
     @Test
     void shouldRegisterUserAndReturnToken() throws Exception {

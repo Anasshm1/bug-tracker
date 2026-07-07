@@ -10,7 +10,6 @@ import {
 
 /**
  * Sidebar commune pour DEV et REPORTER.
- * Affiche les liens de navigation, l'info utilisateur et le bouton déconnexion.
  */
 export default function Sidebar({ activeTab, onTabChange, tabs }) {
   const { user, logout } = useAuth();
@@ -21,14 +20,12 @@ export default function Sidebar({ activeTab, onTabChange, tabs }) {
     navigate('/login');
   }
 
-  // Mapping icônes par clé de tab
   const iconMap = {
     consultation: <LayoutDashboard />,
     statistiques: <BarChart3 />,
     'creer-ticket': <PlusCircle />,
   };
 
-  // Initiales de l'utilisateur pour l'avatar
   const initials = user?.fullName
     ? user.fullName
         .split(' ')
@@ -63,19 +60,9 @@ export default function Sidebar({ activeTab, onTabChange, tabs }) {
         ))}
       </nav>
 
-      {/* Footer */}
+      {/* Footer — minimal */}
       <div className="sidebar-footer">
-        <div className="sidebar-user">
-          <div className="sidebar-user-avatar">{initials}</div>
-          <div className="sidebar-user-info">
-            <div className="sidebar-user-name">{user?.fullName}</div>
-            <div className="sidebar-user-role">{user?.role}</div>
-          </div>
-        </div>
-        <button className="btn-logout" onClick={handleLogout} id="btn-logout">
-          <LogOut />
-          <span>Déconnexion</span>
-        </button>
+        <div className="sidebar-version">v1.0</div>
       </div>
     </aside>
   );
