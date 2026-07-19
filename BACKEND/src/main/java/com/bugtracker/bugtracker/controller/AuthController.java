@@ -48,4 +48,9 @@ public class AuthController {
     public ResponseEntity<List<AuthResponse.UserDto>> getDevelopers() {
         return ResponseEntity.ok(authService.getDevelopers());
     }
+
+    @GetMapping("/reporters")
+    public ResponseEntity<List<AuthResponse.UserDto>> getReporters() {
+        return ResponseEntity.ok(authService.getReporters());
+    }
 }

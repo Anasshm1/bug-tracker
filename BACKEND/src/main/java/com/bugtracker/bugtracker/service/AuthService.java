@@ -108,6 +108,12 @@ public class AuthService {
                 .collect(Collectors.toList());
     }
 
+    public List<AuthResponse.UserDto> getReporters() {
+        return userRepository.findByRole(Role.REPORTER).stream()
+                .map(this::mapToUserDto)
+                .collect(Collectors.toList());
+    }
+
     private AuthResponse.UserDto mapToUserDto(User user) {
         return AuthResponse.UserDto.builder()
                 .id(user.getId())

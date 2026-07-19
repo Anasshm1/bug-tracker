@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import TopBar from '../components/TopBar';
 import StatsCard from '../components/StatsCard';
-import { fetchTickets, fetchTicketStats, createTicket, fetchProjects, fetchDevelopers } from '../services/api';
+import StatsReporter from '../components/StatsReporter';
+import { fetchTickets, fetchTicketStats, createTicket, fetchProjects, fetchDevelopers, searchTickets, fetchTicketById, fetchComments, addComment, updateTicketStatus, API_BASE } from '../services/api';
 import {
   Layers,
   AlertCircle,
@@ -14,7 +15,13 @@ import {
   Upload,
   ChevronDown,
   Image as ImageIcon,
-  FileText
+  FileText,
+  Search,
+  RotateCcw,
+  Calendar,
+  ArrowLeft,
+  MessageSquare,
+  Paperclip
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -48,6 +55,21 @@ export default function ReporterDashboard() {
   // Reference data
   const [projects, setProjects] = useState([]);
   const [developers, setDevelopers] = useState([]);
+
+  // Search state
+  const [searchTitle, setSearchTitle] = useState('');
+  const [searchProjectId, setSearchProjectId] = useState('');
+  const [searchAssignedToId, setSearchAssignedToId] = useState('');
+  const [searchDateDebut, setSearchDateDebut] = useState('');
+  const [searchDateFin, setSearchDateFin] = useState('');
+  const [searching, setSearching] = useState(false);
+
+  // Ticket Detail state
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [commentContent, setCommentContent] = useState('');
+  const [commentFiles, setCommentFiles] = useState([]);
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -98,11 +120,113 @@ export default function ReporterDashboard() {
     }
   }
 
+  async function handleSearch(e) {
+    e.preventDefault();
+    setSearching(true);
+    try {
+      const results = await searchTickets({
+        title: searchTitle || undefined,
+        projectId: searchProjectId || undefined,
+        assignedToId: searchAssignedToId || undefined,
+        dateDebut: searchDateDebut || undefined,
+        dateFin: searchDateFin || undefined,
+      });
+      setTickets(results);
+    } catch (err) {
+      console.error('Erreur recherche:', err);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function handleResetSearch() {
+    setSearchTitle('');
+    setSearchProjectId('');
+    setSearchAssignedToId('');
+    setSearchDateDebut('');
+    setSearchDateFin('');
+    setSearching(true);
+    try {
+      const ticketData = await fetchTickets();
+      setTickets(ticketData);
+    } catch (err) {
+      console.error('Erreur réinitialisation:', err);
+    } finally {
+      setSearching(false);
+    }
+  }
+
   const handleAttachmentChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
     setFiles(prev => [...prev, ...selectedFiles]);
   };
 
+  const removeAttachment = (index) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // --- TICKET DETAIL HANDLERS ---
+  const handleTicketClick = async (ticket) => {
+    setLoading(true);
+    try {
+      const ticketData = await fetchTicketById(ticket.id);
+      const commentsData = await fetchComments(ticket.id);
+      setSelectedTicket(ticketData);
+      setComments(commentsData);
+    } catch (err) {
+      console.error('Erreur chargement détails:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBackToList = () => {
+    setSelectedTicket(null);
+    setComments([]);
+    setCommentContent('');
+    setCommentFiles([]);
+  };
+
+  const handleCommentFileChange = (e) => {
+    const selectedFiles = Array.from(e.target.files);
+    setCommentFiles(prev => [...prev, ...selectedFiles]);
+  };
+
+  const removeCommentFile = (index) => {
+    setCommentFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCommentSubmit = async (e) => {
+    e.preventDefault();
+    if (!commentContent.trim() && commentFiles.length === 0) return;
+    
+    setSubmittingComment(true);
+    try {
+      const newComment = await addComment(selectedTicket.id, commentContent, commentFiles);
+      setComments(prev => [...prev, newComment]);
+      setCommentContent('');
+      setCommentFiles([]);
+    } catch (err) {
+      console.error('Erreur ajout commentaire:', err);
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  // --- STATUS UPDATE HANDLER ---
+  const handleStatusUpdate = async (newStatus) => {
+    try {
+      const updatedTicket = await updateTicketStatus(selectedTicket.id, newStatus);
+      setSelectedTicket(updatedTicket);
+      // Mettre à jour le ticket dans la liste du tableau
+      setTickets(prev => prev.map(t => t.id === updatedTicket.id ? updatedTicket : t));
+    } catch (err) {
+      console.error('Erreur mise à jour statut:', err);
+      alert(err.message || 'Erreur lors de la mise à jour du statut');
+    }
+  };
+
+  // --- CREATE TICKET HANDLERS ---
   async function handleCreateTicket(e) {
     e.preventDefault();
     setSubmitError('');
@@ -195,19 +319,270 @@ export default function ReporterDashboard() {
               {/* ===== CONSULTATION ===== */}
               {activeTab === 'consultation' && (
                 <div className="tab-content" key="consultation">
-                  {/* Summary stats above table */}
-                  {stats && (
-                    <div className="stats-grid">
-                      <StatsCard label="Total" value={totalTickets} icon={<Layers />} variant="total" />
-                      <StatsCard label="En cours" value={stats.ENCOURS || 0} icon={<AlertCircle />} variant="nouveau" />
-                      <StatsCard label="Traité" value={stats.TRAITE || 0} icon={<Clock />} variant="en-cours" />
-                      <StatsCard label="Complété" value={stats.COMPLETE || 0} icon={<CheckCircle2 />} variant="resolu" />
+                  {selectedTicket ? (
+                    <div className="ticket-detail-view">
+                      <button className="btn-back" onClick={handleBackToList}>
+                        <ArrowLeft size={16} /> Retour à la liste
+                      </button>
+
+                      <div className="ticket-detail-header">
+                        <div className="ticket-detail-title">
+                          <h2>{selectedTicket.title}</h2>
+                          <div className="ticket-detail-badges">
+                            <span className={`badge-level level-${selectedTicket.level?.toLowerCase()}`}>
+                              {selectedTicket.level}
+                            </span>
+                            <span className={`status-badge ${getStatusClass(selectedTicket.status)}`}>
+                              <span className="status-dot"></span>
+                              {getStatusLabel(selectedTicket.status)}
+                            </span>
+                            {/* REPORTER: bouton Marquer Complété */}
+                            {selectedTicket.status !== 'COMPLETE' && (
+                              <button
+                                className="btn-status-action btn-status-complete"
+                                onClick={() => handleStatusUpdate('COMPLETE')}
+                              >
+                                ✓ Marquer Complété
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="ticket-detail-meta">
+                          <span><strong>Projet:</strong> {selectedTicket.projectName}</span>
+                          <span><strong>Assigné à:</strong> {selectedTicket.assignedToName || '—'}</span>
+                          <span><strong>Reporter:</strong> {selectedTicket.reporterName}</span>
+                          <span><strong>Date:</strong> {formatDate(selectedTicket.createdAt)}</span>
+                        </div>
+                      </div>
+
+                      <div className="ticket-detail-description card-panel">
+                        <h3>Description</h3>
+                        <p className="description-text">{selectedTicket.description}</p>
+                        
+                        {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
+                          <div className="ticket-attachments">
+                            <h4>Pièces jointes ({selectedTicket.attachments.length})</h4>
+                            <div className="attachment-list">
+                              {selectedTicket.attachments.map((file, i) => (
+                                <a key={i} href={API_BASE.replace('/api', '') + file.filePath} target="_blank" rel="noreferrer" className="attachment-item">
+                                  {file.fileType.includes('image') ? <ImageIcon size={16} /> : <FileText size={16} />}
+                                  {file.fileName}
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* RETOURS D'INFO SEPARES */}
+                      {comments.filter(c => c.content.includes("[RETOUR D'INFO]")).length > 0 && (
+                        <div className="ticket-retours-section card-panel" style={{ marginBottom: '20px', borderLeft: '4px solid #f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.05)' }}>
+                          <h3 style={{ color: '#d97706', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
+                            <AlertCircle size={18} /> Retours d'information ({comments.filter(c => c.content.includes("[RETOUR D'INFO]")).length})
+                          </h3>
+                          <div className="comments-list">
+                            {comments.filter(c => c.content.includes("[RETOUR D'INFO]")).map(comment => (
+                              <div key={comment.id} className="comment-card" style={{ backgroundColor: '#fff' }}>
+                                <div className="comment-header">
+                                  <span className="comment-author">{comment.authorName}</span>
+                                  <span className="comment-role badge-role">{comment.authorRole}</span>
+                                  <span className="comment-date">{formatDate(comment.createdAt)}</span>
+                                </div>
+                                <div className="comment-body">
+                                  <p style={{ fontWeight: 500 }}>{comment.content.replace(/\*\*\[RETOUR D'INFO\]\*\*\s*/, "")}</p>
+                                  {comment.attachments && comment.attachments.length > 0 && (
+                                    <div className="comment-attachments">
+                                      {comment.attachments.map((file, i) => (
+                                        <a key={i} href={API_BASE.replace('/api', '') + file.filePath} target="_blank" rel="noreferrer" className="attachment-item">
+                                          {file.fileType?.includes('image') ? <ImageIcon size={14} /> : <Paperclip size={14} />}
+                                          {file.fileName}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="ticket-comments-section">
+                        <h3><MessageSquare size={18} /> Commentaires ({comments.filter(c => !c.content.includes("[RETOUR D'INFO]")).length})</h3>
+
+                        <div className="comments-list">
+                          {comments.filter(c => !c.content.includes("[RETOUR D'INFO]")).map(comment => (
+                            <div key={comment.id} className="comment-card">
+                              <div className="comment-header">
+                                <span className="comment-author">{comment.authorName}</span>
+                                <span className="comment-role badge-role">{comment.authorRole}</span>
+                                <span className="comment-date">{formatDate(comment.createdAt)}</span>
+                              </div>
+                              <div className="comment-body">
+                                <p>{comment.content}</p>
+                                {comment.attachments && comment.attachments.length > 0 && (
+                                  <div className="comment-attachments">
+                                    {comment.attachments.map((file, i) => (
+                                      <a key={i} href={API_BASE.replace('/api', '') + file.filePath} target="_blank" rel="noreferrer" className="attachment-item">
+                                        {file.fileType?.includes('image') ? <ImageIcon size={14} /> : <Paperclip size={14} />}
+                                        {file.fileName}
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <form className="comment-form card-panel" onSubmit={handleCommentSubmit}>
+                          <h4>Ajouter un commentaire</h4>
+                          <textarea
+                            placeholder="Écrivez votre commentaire ici..."
+                            value={commentContent}
+                            onChange={(e) => setCommentContent(e.target.value)}
+                            rows={3}
+                          ></textarea>
+                          
+                          {commentFiles.length > 0 && (
+                            <ul className="file-list">
+                              {commentFiles.map((file, i) => (
+                                <li key={i}>
+                                  {file.name}
+                                  <button type="button" onClick={() => removeCommentFile(i)} className="remove-file-btn">✕</button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+
+                          <div className="comment-actions">
+                            <div className="file-uploads">
+                              <label className="btn-upload">
+                                <ImageIcon size={16} /> Image
+                                <input type="file" multiple accept="image/*" onChange={handleCommentFileChange} hidden />
+                              </label>
+                              <label className="btn-upload">
+                                <Paperclip size={16} /> Fichier
+                                <input type="file" multiple onChange={handleCommentFileChange} hidden />
+                              </label>
+                            </div>
+                            <button type="submit" className="btn-submit-comment" disabled={submittingComment || (!commentContent.trim() && commentFiles.length === 0)}>
+                              {submittingComment ? 'Envoi...' : (
+                                <>Envoyer <Send size={16} /></>
+                              )}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
                     </div>
-                  )}
+                  ) : (
+                    <div className="consultation-layout-left">
+                      <div className="consultation-restricted-width">
+                      {/* Search bar replacing stats cards */}
+                      <div className="search-bar">
+                    <div className="search-bar-header">
+                      <Search size={18} />
+                      <h2>Rechercher des tickets</h2>
+                    </div>
+                    <form onSubmit={handleSearch} className="search-form">
+                      <div className="search-row">
+                        <div className="search-field">
+                          <label htmlFor="search-title">Nom du ticket</label>
+                          <input
+                            id="search-title"
+                            type="text"
+                            placeholder="Rechercher par titre..."
+                            value={searchTitle}
+                            onChange={(e) => setSearchTitle(e.target.value)}
+                          />
+                        </div>
+                        <div className="search-field">
+                          <label htmlFor="search-project">Projet</label>
+                          <select
+                            id="search-project"
+                            value={searchProjectId}
+                            onChange={(e) => setSearchProjectId(e.target.value)}
+                          >
+                            <option value="">— Tous les projets —</option>
+                            {projects.map(p => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="search-field">
+                          <label htmlFor="search-developer">Développeur</label>
+                          <select
+                            id="search-developer"
+                            value={searchAssignedToId}
+                            onChange={(e) => setSearchAssignedToId(e.target.value)}
+                          >
+                            <option value="">— Tous les développeurs —</option>
+                            {developers.map(d => (
+                              <option key={d.id} value={d.id}>{d.fullName}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="search-row">
+                        <div className="search-field">
+                          <label htmlFor="search-date-debut">
+                            <Calendar size={13} />
+                            Date début
+                          </label>
+                          <input
+                            id="search-date-debut"
+                            type="date"
+                            value={searchDateDebut}
+                            onChange={(e) => setSearchDateDebut(e.target.value)}
+                          />
+                        </div>
+                        <div className="search-field">
+                          <label htmlFor="search-date-fin">
+                            <Calendar size={13} />
+                            Date fin
+                          </label>
+                          <input
+                            id="search-date-fin"
+                            type="date"
+                            value={searchDateFin}
+                            onChange={(e) => setSearchDateFin(e.target.value)}
+                          />
+                        </div>
+                        <div className="search-actions">
+                          <button
+                            type="submit"
+                            className="btn-search"
+                            disabled={searching}
+                            id="btn-search-tickets"
+                          >
+                            {searching ? (
+                              <span className="spinner"></span>
+                            ) : (
+                              <>
+                                <Search size={15} />
+                                Rechercher
+                              </>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-reset"
+                            onClick={handleResetSearch}
+                            disabled={searching}
+                            id="btn-reset-search"
+                            title="Réinitialiser la recherche"
+                          >
+                            <RotateCcw size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
 
                   <div className="table-container">
                     <div className="table-header">
                       <h2>Tous les tickets</h2>
+                      <span className="ticket-count">{tickets.length} résultat{tickets.length !== 1 ? 's' : ''}</span>
                     </div>
                     {tickets.length === 0 ? (
                       <div className="empty-state">
@@ -229,8 +604,8 @@ export default function ReporterDashboard() {
                             </tr>
                           </thead>
                           <tbody>
-                            {tickets.map((ticket) => (
-                              <tr key={ticket.id}>
+                            {tickets.map(ticket => (
+                              <tr key={ticket.id} onClick={() => handleTicketClick(ticket)} className="clickable-row">
                                 <td style={{ color: 'var(--text-muted)', fontWeight: 500 }}>
                                   #{ticket.id}
                                 </td>
@@ -258,38 +633,16 @@ export default function ReporterDashboard() {
                       </div>
                     )}
                   </div>
+                    </div>
+                  </div>
+                  )}
                 </div>
               )}
 
               {/* ===== STATISTIQUES ===== */}
-              {activeTab === 'statistiques' && stats && (
+              {activeTab === 'statistiques' && (
                 <div className="tab-content" key="statistiques">
-                  <div className="stats-grid">
-                    <StatsCard
-                      label="Total Tickets"
-                      value={totalTickets}
-                      icon={<Layers />}
-                      variant="total"
-                    />
-                    <StatsCard
-                      label="En cours"
-                      value={stats.ENCOURS || 0}
-                      icon={<AlertCircle />}
-                      variant="nouveau"
-                    />
-                    <StatsCard
-                      label="Traité"
-                      value={stats.TRAITE || 0}
-                      icon={<Clock />}
-                      variant="en-cours"
-                    />
-                    <StatsCard
-                      label="Complété"
-                      value={stats.COMPLETE || 0}
-                      icon={<CheckCircle2 />}
-                      variant="resolu"
-                    />
-                  </div>
+                  <StatsReporter />
                 </div>
               )}
 
@@ -358,6 +711,7 @@ export default function ReporterDashboard() {
                               onChange={(e) => setProjectId(e.target.value)}
                               required
                             >
+                              <option value="" disabled>— Sélectionnez un projet —</option>
                               {projects.map(p => (
                                 <option key={p.id} value={p.id}>{p.name}</option>
                               ))}
@@ -380,36 +734,6 @@ export default function ReporterDashboard() {
                         </div>
 
                         <div className="form-row">
-                          <div className="form-group">
-                            <label>Statut</label>
-                            <div className="custom-select-wrapper">
-                              <div 
-                                className={`custom-select-trigger ${STATUS_OPTIONS.find(o => o.value === status)?.colorClass}`}
-                                onClick={() => setIsStatusOpen(!isStatusOpen)}
-                              >
-                                <div className="custom-select-trigger-content">
-                                  <span className="status-dot"></span>
-                                  {STATUS_OPTIONS.find(o => o.value === status)?.label}
-                                </div>
-                                <ChevronDown size={16} />
-                              </div>
-                              {isStatusOpen && (
-                                <div className="custom-select-options">
-                                  {STATUS_OPTIONS.map(opt => (
-                                    <div 
-                                      key={opt.value} 
-                                      className={`custom-select-option ${opt.colorClass}`} 
-                                      onClick={() => { setStatus(opt.value); setIsStatusOpen(false); }}
-                                    >
-                                      <span className="status-dot"></span>
-                                      {opt.label}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
                           <div className="form-group">
                             <label>Date de création</label>
                             <input
